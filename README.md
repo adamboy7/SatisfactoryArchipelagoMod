@@ -73,7 +73,52 @@ To update the used APCpp version:
 1. Copy all `*.lib` over from `APCpp\build\` to `Archipelago\Source\APCpp\lib\Win64` and subdirectories
 2. Copy all `*.h` over from `APCpp` to `Archipelago\Source\APCpp\inc`
 
-For linux, its not currently working
+#### Linux (dedicated server)
+
+The Linux libs must be built with the same toolchain Unreal uses (clang 18 from the `v25_clang-18.1.0-rockylinux8` toolchain for UE 5.6)
+and against that toolchain's libc++, not the system libstdc++, otherwise the server module will fail to link or crash.
+These steps were done on Linux / WSL, using the Linux-hosted toolchain from
+`https://cdn.unrealengine.com/Toolchain_Linux/native-linux-v25_clang-18.1.0-rockylinux8.tar.gz`,
+which also contains the libc++ headers (`include/c++/v1`) UE 5.6 compiles against.
+
+ * clone the [branch](https://github.com/Jarno458/APCpp/tree/Satisfactory) of APCpp with `--recurse-submodules`
+ * The headers in `Source/APCpp/inc` come from an APCpp version that is not published yet.
+   The current Linux libs were built from commit `bdd786f` with these headers copied in and the
+   matching changes made: `AP_Send`, `AP_SetPackageReceivedCallback` (forwards `Retrieved`/`SetReply` packets),
+   `AP_GetAllPlayers` returning `AP_NetworkPlayer`, `AP_QueryGiftBoxes` keyed by team and slot,
+   and `AP_DataType::UnsignedInt64` removed
+ * IXWebSocket's mbedTLS backend only loads system CA certificates on Windows;
+   patch `SocketMbedTLS::loadSystemCertificates` in `IXWebSocket/ixwebsocket/IXSocketMbedTLS.cpp`
+   to load a Linux CA bundle (e.g. `/etc/ssl/certs/ca-certificates.crt`), otherwise `wss://` fails and APCpp falls back to `ws://`
+ * Create a CMake toolchain file `ue-linux-toolchain.cmake`:
+   ```cmake
+   set(CMAKE_SYSTEM_NAME Linux)
+   set(CMAKE_SYSTEM_PROCESSOR x86_64)
+   set(UE_TC_ROOT "/path/to/v25_clang-18.1.0-rockylinux8/x86_64-unknown-linux-gnu")
+   set(UE_LIBCXX_INC "${UE_TC_ROOT}/include")
+   set(CMAKE_SYSROOT "${UE_TC_ROOT}")
+   set(CMAKE_C_COMPILER "${UE_TC_ROOT}/bin/clang")
+   set(CMAKE_CXX_COMPILER "${UE_TC_ROOT}/bin/clang++")
+   set(CMAKE_AR "${UE_TC_ROOT}/bin/llvm-ar" CACHE FILEPATH "")
+   set(CMAKE_RANLIB "${UE_TC_ROOT}/bin/llvm-ranlib" CACHE FILEPATH "")
+   set(CMAKE_C_COMPILER_TARGET x86_64-unknown-linux-gnu)
+   set(CMAKE_CXX_COMPILER_TARGET x86_64-unknown-linux-gnu)
+   set(_common "-fPIC -fvisibility=hidden -ffunction-sections -fdata-sections")
+   set(CMAKE_C_FLAGS_INIT "${_common}")
+   set(CMAKE_CXX_FLAGS_INIT "${_common} -fvisibility-inlines-hidden -nostdinc++ -isystem ${UE_LIBCXX_INC} -isystem ${UE_LIBCXX_INC}/c++/v1")
+   set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+   set(CMAKE_FIND_ROOT_PATH "${UE_TC_ROOT}")
+   set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+   set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+   set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+   set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+   ```
+ * Create a folder `build` and enter it
+ * `cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/ue-linux-toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=ON -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON -DBUNDLED_JSONCPP=ON -DUSE_MBED_TLS=ON -DMBEDTLS_FATAL_WARNINGS=OFF`
+ * `cmake --build . -j`
+
+1. Copy `libAPCpp.a`, `IXWebSocket/libixwebsocket.a`, `jsoncpp/src/lib_json/libjsoncpp.a` and `_deps/zlib-build/libz.a` to `Archipelago\Source\APCpp\lib\Linux`
+2. Copy all `*.a` from `mbedtls_bin/library` and `mbedtls_bin/3rdparty/*` to `Archipelago\Source\APCpp\lib\Linux\mbedtls`
 
 ### Archipelago Server
 

@@ -15,8 +15,8 @@
 #include "Subsystem/ApSlotDataSubsystem.h"
 #include "Subsystem/ApMappingsSubsystem.h"
 
-#include "../Mods/ContentLib/Source/ContentLib/Public/CLSchematicBPFLib.h"
-#include "../Mods/ContentLib/Source/ContentLib/Public/BPFContentLib.h"
+#include "CLSchematicBPFLib.h"
+#include "BPFContentLib.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogApSchematicPatcherSubsystem, Log, All);
 

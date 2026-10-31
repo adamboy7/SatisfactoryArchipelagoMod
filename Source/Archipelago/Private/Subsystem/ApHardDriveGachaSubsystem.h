@@ -12,6 +12,8 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogApHardDriveGachaSubsystem, Log, All);
 
+class AApSchematicPatcherSubsystem;
+
 UCLASS()
 class ARCHIPELAGO_API AApHardDriveGachaSubsystem : public AModSubsystem
 {
